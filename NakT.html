@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <!-- Vue mobile sur Android : largeur de l'appareil, pas de zoom forcé -->
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- CSP restrictive :
+       - script-src : notre fichier + le CDN jsdelivr (supabase-js figé en v2.45.4)
+       - connect-src : notre domaine Supabase uniquement
+       - rien d'autre : pas de publicité, pas de tracker -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self';
+                 script-src 'self' https://cdn.jsdelivr.net;
+                 connect-src 'self' https://bubuaqfophidvwezfvwn.supabase.co;
+                 style-src 'self' 'unsafe-inline';
+                 img-src 'self' data:;
+                 object-src 'none';
+                 base-uri 'self';
+                 form-action 'self'" />
+
+  <title>NakT — suivi de cycle</title>
+  <style>
+    /* Styles simples, lisibles sur téléphone et PC */
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; margin: 0; background: #faf7f8; color: #333; }
+    header { background: #7c4d70; color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+    main { max-width: 720px; margin: 0 auto; padding: 16px; }
+    nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+    nav button { padding: 8px 12px; border: 1px solid #7c4d70; background: #fff; border-radius: 8px; cursor: pointer; }
+    nav button.actif { background: #7c4d70; color: #fff; }
+    .carte { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    label { display: block; margin: 8px 0 4px; font-weight: 600; font-size: 0.9em; }
+    input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 8px; font-size: 1em; }
+    button.principal { background: #7c4d70; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; margin-top: 10px; cursor: pointer; width: 100%; }
+    .avertissement { background: #fff3cd; border: 1px solid #e0c060; padding: 10px; border-radius: 8px; font-size: 0.85em; margin-bottom: 12px; }
+    .alerte-test { background: #f8d7da; border: 1px solid #a94442; padding: 12px; border-radius: 8px; font-weight: bold; margin-bottom: 12px; }
+    table.calendrier { width: 100%; border-collapse: collapse; text-align: center; }
+    table.calendrier td, table.calendrier th { padding: 8px 2px; font-size: 0.9em; }
+    .jour-regles   { background: #e88098; border-radius: 50%; color: #fff; }
+    .jour-fertile  { background: #cdebc9; border-radius: 50%; }
+    .jour-ovulation{ background: #7cb87c; border-radius: 50%; color: #fff; }
+    .jour-rappel   { background: #f0c070; border-radius: 50%; }
+    .legende span { display: inline-block; margin-right: 12px; font-size: 0.85em; }
+    .erreur { color: #a94442; font-size: 0.9em; }
+    .info { color: #555; font-size: 0.85em; }
+  </style>
+</head>
+<body>
+
+  <!-- ================== ÉCRAN DE CONSENTEMENT ================== -->
+  <div id="ecran-consentement" class="carte" style="display:none; margin-top:30px;">
+    <h2>Avant de commencer</h2>
+    <p>NakT enregistre dans votre compte privé :</p>
+    <ul>
+      <li>les <strong>dates de début de vos règles</strong> et leurs durées ;</li>
+      <li>la <strong>durée de vos cycles</strong> ;</li>
+      <li>les entrées de votre <strong>journal</strong> (humeur, symptômes, flux, température) ;</li>
+      <li>les <strong>dates de vos tests de grossesse</strong> (date seulement, jamais de résultat).</li>
+    </ul>
+    <p><strong>Pourquoi ?</strong> Uniquement pour calculer vos prochaines règles,
+    votre ovulation estimée et vos rappels de test. Ces données sont stockées
+    sur Supabase et protégées : personne d'autre que vous ne peut les lire
+    (protection « Row Level Security » de la base de données).</p>
+    <p class="info">NakT est un outil d'estimation. Il n'est pas une méthode de
+    contraception ni un diagnostic médical.</p>
+    <label><input type="checkbox" id="case-consentement" /> J'ai compris et j'accepte</label>
+    <button class="principal" id="btn-accepter-consentement" disabled>Continuer</button>
+  </div>
+
+  <!-- ================== APPLICATION ================== -->
+  <div id="application" style="display:none;">
+    <header>
+      <strong>NakT</strong>
+      <button id="btn-deconnexion">Déconnexion</button>
+    </header>
+    <main>
+      <!-- Avertissement visible en permanence -->
+      <div class="avertissement">
+        NakT est un outil d'estimation. Il n'est pas une méthode de contraception
+        ni un diagnostic médical. Consultez un médecin ou une sage-femme.
+      </div>
+
+      <!-- Alerte de rappel de test (affichée seulement quand la date est atteinte) -->
+      <div id="alerte-test" class="alerte-test" style="display:none;"></div>
+
+      <nav>
+        <button data-vue="accueil" class="actif">Accueil</button>
+        <button data-vue="cycle">Cycle</button>
+        <button data-vue="calendrier">Calendrier</button>
+        <button data-vue="journal">Journal</button>
+        <button data-vue="tests">Tests</button>
+        <button data-vue="parametres">Paramètres</button>
+      </nav>
+
+      <!-- ---------- Vue Accueil ---------- -->
+      <section id="vue-accueil">
+        <div class="carte">
+          <h2>Mes estimations</h2>
+          <p>Prochaines règles : <strong id="acc-regles">—</strong></p>
+          <p>Ovulation estimée : <strong id="acc-ovulation">—</strong></p>
+          <p>Fenêtre fertile : <strong id="acc-fenetre">—</strong></p>
+          <p>Prochain rappel de test : <strong id="acc-rappel">—</strong></p>
+          <p class="info">
+            Calculs : prochaines règles = dernier début + durée moyenne du cycle
+            (28 jours par défaut). Ovulation = prochaines règles − 14 jours.
+            Fenêtre fertile = ovulation − 5 jours à ovulation + 1 jour.
+            Rappel de test = ovulation + 14 jours (ou prochaines règles si plus tôt).
+          </p>
+        </div>
+      </section>
+
+      <!-- ---------- Vue Cycle ---------- -->
+      <section id="vue-cycle" style="display:none;">
+        <div class="carte">
+          <h2>Saisir un cycle</h2>
+          <form id="form-cycle">
+            <label for="c-debut">Date de début des règles</label>
+            <input type="date" id="c-debut" required />
+            <label for="c-duree-regles">Durée des règles (1 à 10 jours)</label>
+            <input type="number" id="c-duree-regles" min="1" max="10" required />
+            <label for="c-duree-cycle">Durée du cycle (20 à 45 jours)</label>
+            <input type="number" id="c-duree-cycle" min="20" max="45" required />
+            <button type="submit" class="principal">Enregistrer le cycle</button>
+            <p id="cycle-erreur" class="erreur"></p>
+          </form>
+        </div>
+        <div class="carte">
+          <h2>Mes cycles enregistrés</h2>
+          <ul id="liste-cycles"></ul>
+        </div>
+      </section>
+
+      <!-- ---------- Vue Calendrier ---------- -->
+      <section id="vue-calendrier" style="display:none;">
+        <div class="carte">
+          <h2>Calendrier</h2>
+          <p>
+            <button id="cal-moins">&lt;</button>
+            <strong id="cal-titre"></strong>
+            <button id="cal-plus">&gt;</button>
+          </p>
+          <table class="calendrier" id="table-calendrier"></table>
+          <p class="legende">
+            <span class="jour-regles">&nbsp;Règles&nbsp;</span>
+            <span class="jour-fertile">&nbsp;Fertile&nbsp;</span>
+            <span class="jour-ovulation">&nbsp;Ovulation&nbsp;</span>
+            <span class="jour-rappel">&nbsp;Rappel test&nbsp;</span>
+          </p>
+        </div>
+      </section>
+
+      <!-- ---------- Vue Journal ---------- -->
+      <section id="vue-journal" style="display:none;">
+        <div class="carte">
+          <h2>Nouvelle entrée</h2>
+          <form id="form-journal">
+            <label for="j-date">Date</label>
+            <input type="date" id="j-date" required />
+            <label for="j-humeur">Humeur (max 50 caractères)</label>
+            <input type="text" id="j-humeur" maxlength="50" />
+            <label for="j-symptomes">Symptômes (max 200 caractères)</label>
+            <input type="text" id="j-symptomes" maxlength="200" />
+            <label for="j-flux">Flux</label>
+            <select id="j-flux">
+              <option>aucun</option><option>léger</option>
+              <option>moyen</option><option>abondant</option>
+            </select>
+            <label for="j-temp">Température (optionnelle, 35.0 – 42.0)</label>
+            <input type="number" id="j-temp" step="0.1" min="35" max="42" />
+            <button type="submit" class="principal">Enregistrer</button>
+            <p id="journal-erreur" class="erreur"></p>
+          </form>
+        </div>
+        <div class="carte">
+          <h2>Historique</h2>
+          <ul id="liste-journal"></ul>
+        </div>
+      </section>
+
+      <!-- ---------- Vue Tests ---------- -->
+      <section id="vue-tests" style="display:none;">
+        <div class="carte">
+          <h2>Rappel de test de grossesse</h2>
+          <p class="info">
+            NakT vous rappelle la date, mais ne propose ni analyse, ni capteur,
+            ni interprétation de résultat. Seul·e vous pouvez lire un test, avec
+            l'aide d'un professionnel de santé si besoin.
+          </p>
+          <form id="form-test">
+            <label for="t-date">Date du test effectué</label>
+            <input type="date" id="t-date" required />
+            <label for="t-note">Note libre (optionnelle, max 100 caractères)</label>
+            <input type="text" id="t-note" maxlength="100" />
+            <button type="submit" class="principal">Enregistrer la date du test</button>
+            <p id="test-erreur" class="erreur"></p>
+          </form>
+          <h2>Tests enregistrés</h2>
+          <ul id="liste-tests"></ul>
+        </div>
+      </section>
+
+      <!-- ---------- Vue Paramètres ---------- -->
+      <section id="vue-parametres" style="display:none;">
+        <div class="carte">
+          <h2>Exporter mes données</h2>
+          <p>Télécharge toutes vos données au format JSON.</p>
+          <button class="principal" id="btn-export">Exporter en JSON</button>
+        </div>
+        <div class="carte">
+          <h2>Supprimer mon compte</h2>
+          <p>Efface définitivement toutes vos données puis votre compte.
+          Action irréversible.</p>
+          <button class="principal" id="btn-supprimer-compte">Supprimer mon compte</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ================== ÉCRAN DE CONNEXION ================== -->
+  <div id="ecran-auth" class="carte" style="display:none; margin-top:30px;">
+    <h2>NakT — Connexion</h2>
+    <label for="a-email">Email</label>
+    <input type="email" id="a-email" />
+    <label for="a-mdp">Mot de passe</label>
+    <input type="password" id="a-mdp" />
+    <button class="principal" id="btn-connexion">Se connecter</button>
+    <button class="principal" id="btn-inscription">Créer un compte</button>
+    <p id="auth-erreur" class="erreur"></p>
+  </div>
+
+  <!-- Chargement de supabase-js depuis un CDN, version FIGÉE,
+       avec contrôle d'intégrité (SRI) : si le fichier est modifié,
+       le navigateur refuse de l'exécuter. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"
+          integrity="sha384-À-VÉRIFIER-SUR-SRIHASH.ORG" crossorigin="anonymous"></script>
+  <script src="app.js"></script>
+</body>
+</html>
