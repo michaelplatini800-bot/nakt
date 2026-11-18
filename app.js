@@ -392,3 +392,12 @@ document.getElementById("btn-supprimer-compte").addEventListener("click", async 
     alert("La suppression a échoué. Réessayez plus tard.");
   }
 });
+
+// ---------- Connexion avec Google ----------
+document.getElementById("btn-google").addEventListener("click", async () => {
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: "https://michaelplatini800-bot.github.io/nakt/" },
+  });
+  if (error) document.getElementById("auth-erreur").textContent = "Connexion Google impossible.";
+});
