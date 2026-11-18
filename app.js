@@ -221,7 +221,9 @@ document.getElementById("form-cycle").addEventListener("submit", async (e) => {
   const dureeCycle = parseInt(document.getElementById("c-duree-cycle").value, 10);
   if (!(dureeRegles >= 1 && dureeRegles <= 10)) { zoneErreur.textContent = "Durée des règles : entre 1 et 10."; return; }
   if (!(dureeCycle >= 20 && dureeCycle <= 45)) { zoneErreur.textContent = "Durée du cycle : entre 20 et 45."; return; }
+  const { data: { user } } = await sb.auth.getUser();
   const { error } = await sb.from("cycles").insert({
+    user_id: user.id,
     start_date: document.getElementById("c-debut").value,
     period_length: dureeRegles,
     cycle_length: dureeCycle,
