@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://bubuaqfophidvwezfvwn.supabase.co; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
+  <title>NakT — Administration</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f8f6f7; margin: 0; padding: 16px; color: #333; }
+    .carte { background: #fff; border-radius: 12px; padding: 20px; max-width: 480px; margin: 0 auto 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    h1 { font-size: 20px; margin: 0 0 12px; }
+    label { display: block; margin-top: 10px; font-weight: 600; }
+    input { width: 100%; box-sizing: border-box; padding: 10px; margin-top: 4px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; }
+    button { width: 100%; padding: 12px; margin-top: 12px; background: #7d4f70; color: #fff; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+    .stat { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+    .stat strong { font-size: 18px; }
+    .erreur { color: #b33; margin-top: 10px; min-height: 1em; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="carte" id="zone-connexion">
+    <h1>Administration NakT</h1>
+    <label for="a-email">Email</label>
+    <input id="a-email" type="email" autocomplete="username">
+    <label for="a-mdp">Mot de passe</label>
+    <input id="a-mdp" type="password" autocomplete="current-password">
+    <button id="btn-connexion" type="button">Se connecter</button>
+  </div>
+
+  <div class="carte hidden" id="zone-stats">
+    <h1>Chiffres globaux</h1>
+    <div class="stat"><span>Comptes créés</span><strong id="s-total">-</strong></div>
+    <div class="stat"><span>Comptes des 7 derniers jours</span><strong id="s-7j">-</strong></div>
+    <div class="stat"><span>Cycles enregistrés</span><strong id="s-cycles">-</strong></div>
+    <button id="btn-deconnexion" type="button">Se déconnecter</button>
+  </div>
+
+  <div class="erreur" id="msg"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
