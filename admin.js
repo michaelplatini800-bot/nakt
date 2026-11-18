@@ -1,3 +1,4 @@
+window.onerror = (m) => { const z = document.getElementById("msg"); if (z) z.textContent = "Erreur : " + m; };
 // Page admin : affiche seulement trois chiffres globaux.
 // Aucune donnée personnelle n'est lue ici.
 const sb = supabase.createClient("COLLER_URL", "COLLER_CLE");
