@@ -329,7 +329,9 @@ document.getElementById("form-journal").addEventListener("submit", async (e) => 
   const zoneErreur = document.getElementById("journal-erreur");
   zoneErreur.textContent = "";
   const tempBrute = document.getElementById("j-temp").value;
+  const { data: { user } } = await sb.auth.getUser();
   const { error } = await sb.from("journal").insert({
+    user_id: user.id,
     entry_date: document.getElementById("j-date").value,
     mood: document.getElementById("j-humeur").value.trim() || null,
     symptoms: document.getElementById("j-symptomes").value.trim() || null,
@@ -349,7 +351,9 @@ document.getElementById("form-test").addEventListener("submit", async (e) => {
   const zoneErreur = document.getElementById("test-erreur");
   zoneErreur.textContent = "";
   // On enregistre UNIQUEMENT la date + une note libre. Jamais de résultat.
+  const { data: { user } } = await sb.auth.getUser();
   const { error } = await sb.from("test_log").insert({
+    user_id: user.id,
     test_date: document.getElementById("t-date").value,
     note: document.getElementById("t-note").value.trim() || null,
   });
