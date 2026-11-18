@@ -40,3 +40,12 @@ $("btn-deconnexion").addEventListener("click", async () => {
 sb.auth.getSession().then(({ data }) => {
   if (data.session) afficherStats();
 });
+
+// Connexion admin avec Google. Le droit d'accès est vérifié par stats_admin côté base.
+$("btn-google-admin").addEventListener("click", async () => {
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: "https://michaelplatini800-bot.github.io/nakt/admin.html" },
+  });
+  if (error) $("msg").textContent = "Connexion Google impossible.";
+});
